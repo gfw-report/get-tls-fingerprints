@@ -12,7 +12,7 @@ def usage(f=sys.stderr):
     program = sys.argv[0]
     f.write(f"""\
 Usage: {program} [FILENAME...]
-This script uploads pcap files to https://tlsfingerprint.io/pcap to get TLS fingerprints ID. By default, print results to stdout and log to stderr.
+This script uploads pcap files to https://tlsfingerprint.io/pcap to get TLS fingerprint IDs. By default, print results to stdout and log to stderr.
 
   -h, --help                   show this help
   -o filename, --out filename  write to file
