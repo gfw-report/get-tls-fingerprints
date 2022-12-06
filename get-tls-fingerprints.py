@@ -187,6 +187,10 @@ class Fingerprint:
                 sni_len2 = aint(tls[off + 3:off + 5])
                 sni_host = tls[off + 5:off + 5 + sni_len2]
 
+            # convert sni from binary string to str
+            if type(sni_host) is not str:
+                sni_host = sni_host.decode('utf-8')
+
             elif ext_type == 0x000a:
                 # Elliptic curves
                 # len...
@@ -343,7 +347,7 @@ if __name__ == '__main__':
             print(f"filename;index;src_ip;dst_ip;src_port;dst_port;sni;id;url;data")
         for f in input_files(args):
             for (index, sip, dip, sport, dport, sni, fps, data) in parse_pcap(f):
-                print(f"{f.name};{index};{sip};{dip};{sport};{dport};{sni.decode('utf-8')};{fps:016x};https://tlsfingerprint.io/id/{fps:016x};{data.hex()}", file=output_file)
+                print(f"{f.name};{index};{sip};{dip};{sport};{dport};{sni};{fps:016x};https://tlsfingerprint.io/id/{fps:016x};{data.hex()}", file=output_file)
     elif file_type == "hex":
         if header:
             print(f"filename;index;sni;id;url;data")
@@ -351,5 +355,5 @@ if __name__ == '__main__':
             for index, line in enumerate(f):
                 line = line.decode("utf-8").rstrip()
                 sni, fps = parse_hex(line)
-                print(f"{f.name};{index};{sni.decode('utf-8')};{fps:016x};https://tlsfingerprint.io/id/{fps:016x};{line}", file=output_file)
+                print(f"{f.name};{index};{sni};{fps:016x};https://tlsfingerprint.io/id/{fps:016x};{line}", file=output_file)
     output_file.close()
