@@ -8,7 +8,9 @@ import struct
 import hashlib
 import socket
 
-import dpkt
+#import dpkt
+#from scapy.all import *
+from scapy.all import rdpcap
 
 def usage(f=sys.stderr):
     program = sys.argv[0]
@@ -48,8 +50,7 @@ def input_files(args):
                 yield sys.stdin.buffer
             else:
                 for path in glob.glob(arg):
-                    with open(path, 'rb') as f:
-                        yield f
+                    yield path
 
 
 def ungrease_one(a):
@@ -280,36 +281,37 @@ class Fingerprint:
             self.id = self.get_fingerprint_v2()
         return self.id
 
-def parse_pcap(pcap_fname):
-    p = dpkt.pcap.Reader(pcap_fname)
 
-    for index, (ts, pkt) in enumerate(p):
+def parse_pcap(pcap_fname):
+    p = rdpcap(pcap_fname)
+    Ethernet_ETH_TYPE_IP=2048
+    Ethernet_ETH_TYPE_PPPoE=34916
+    IP_PROTO_TCP=6
+    for index, a in enumerate(p):
         try:
-            try:
-                eth = dpkt.ethernet.Ethernet(pkt)
-                if eth.type != dpkt.ethernet.ETH_TYPE_IP:
-                    if eth.type == dpkt.ethernet.ETH_TYPE_PPPoE:
-                        if eth.data.data.p != 0x21:
+            if a.haslayer('Ethernet'):
+                eth = a['Ethernet']
+                if eth.type != Ethernet_ETH_TYPE_IP:
+                    if eth.type ==Ethernet_ETH_TYPE_PPPoE :
+                        if eth['PPP'].proto != 0x21:
                             continue
-                        eth = eth.data.data
+                        eth = eth['PPP']
                     else:
                         continue
-            except dpkt.dpkt.NeedData:
-                eth = dpkt.sll.SLL(pkt)
-                if eth.ethtype != dpkt.ethernet.ETH_TYPE_IP:
-                    continue
-
-            ip = eth.data
-            if ip.p != dpkt.ip.IP_PROTO_TCP:
+            else:
                 continue
-            tcp = ip.data
+            if  a.haslayer('IP'):
+                if a['IP'].proto!= IP_PROTO_TCP:
+                    continue
+            else:
+                continue
+            tcp=a['TCP']
+            fingerprint = Fingerprint.from_tls_data(bytes(tcp.payload))
 
-            fingerprint = Fingerprint.from_tls_data(tcp.data)
-
-            sip, dip = socket.inet_ntoa(ip.src), socket.inet_ntoa(ip.dst)
+            sip,dip=a['IP'].src,a['IP'].dst
 
             if fingerprint is not None:
-                yield (index, sip, dip, tcp.sport, tcp.dport, fingerprint.sni, fingerprint.get_fingerprint(), tcp.data)
+                yield (index, sip, dip, tcp.sport, tcp.dport, fingerprint.sni, fingerprint.get_fingerprint(), bytes(tcp.payload))
 
         except Exception as e:
             eprint('Error in pkt %d: %s' % (index, e))
@@ -347,7 +349,7 @@ if __name__ == '__main__':
             print(f"filename;index;src_ip;dst_ip;src_port;dst_port;sni;id;url;data")
         for f in input_files(args):
             for (index, sip, dip, sport, dport, sni, fps, data) in parse_pcap(f):
-                print(f"{f.name};{index};{sip};{dip};{sport};{dport};{sni};{fps:016x};https://tlsfingerprint.io/id/{fps:016x};{data.hex()}", file=output_file)
+                print(f"{f};{index};{sip};{dip};{sport};{dport};{sni};{fps:016x};https://tlsfingerprint.io/id/{fps:016x};{data.hex()}", file=output_file)
     elif file_type == "hex":
         if header:
             print(f"filename;index;sni;id;url;data")

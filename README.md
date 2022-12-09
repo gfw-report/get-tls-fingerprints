@@ -33,7 +33,7 @@ Examples:
 ## Install dependencies
 
 ```sh
-sudo pip3 install dpkt
+sudo pip3 install scapy
 ```
 
 ## Example output
